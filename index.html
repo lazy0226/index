@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>生日祝福生成器</title>
+<style>
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;height:100%;overflow:hidden;
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    background:#fff;
+    transition:background-color 1.5s ease;
+  }
+  body.dark{background:#000;}
+
+  /* ================= 表单 ================= */
+  #formPanel{
+    position:fixed;inset:0;z-index:10;
+    display:flex;align-items:center;justify-content:center;
+    padding:24px;
+    background:linear-gradient(160deg,#FFF5F8 0%,#F3F0FF 50%,#E8F7FF 100%);
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
+  }
+  .card{
+    width:100%;max-width:430px;
+    background:rgba(255,255,255,.88);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-radius:24px;
+    padding:30px 26px 26px;
+    box-shadow:0 20px 55px rgba(150,140,200,.24),0 2px 8px rgba(0,0,0,.04);
+  }
+  .card h1{
+    margin:0 0 6px;font-size:21px;color:#3a3648;letter-spacing:.3px;
+  }
+  .card .sub{
+    margin:0 0 24px;font-size:13px;color:#8b86a3;line-height:1.55;
+  }
+  .field{margin-bottom:20px;}
+  .field > label{
+    display:block;font-size:13px;color:#7a7690;margin-bottom:9px;
+    font-weight:600;letter-spacing:.3px;
+  }
+  .field input[type=text]{
+    width:100%;padding:13px 15px;border-radius:14px;
+    border:1.5px solid #E6E3F2;background:#fff;
+    font-size:15px;color:#3a3648;outline:none;
+    transition:border-color .2s,box-shadow .2s;
+    font-family:inherit;
+  }
+  .field input[type=text]:focus{
+    border-color:#C4B5F5;box-shadow:0 0 0 4px rgba(196,181,245,.18);
+  }
+  @keyframes shake{
+    0%,100%{transform:translateX(0);}
+    20%,60%{transform:translateX(-6px);}
+    40%,80%{transform:translateX(6px);}
+  }
+  .shake{animation:shake .4s;border-color:#FF9FB2 !important;}
+
+  .swatches{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:13px;}
+  .swatch{
+    width:34px;height:34px;border-radius:50%;cursor:pointer;
+    border:2.5px solid transparent;
+    box-shadow:0 2px 7px rgba(0,0,0,.09);
+    transition:transform .15s,border-color .15s,box-shadow .15s;
+  }
+  .swatch:hover{transform:scale(1.1);}
+  .swatch.on{
+    border-color:#fff;
+    box-shadow:0 0 0 2.5px #C4B5F5,0 3px 11px rgba(0,0,0,.14);
+    transform:scale(1.08);
+  }
+  .customRow{display:flex;align-items:center;gap:11px;font-size:13px;color:#7a7690;}
+  .customRow input[type=color]{
+    width:44px;height:34px;padding:2px;border:1.5px solid #E6E3F2;
+    border-radius:11px;background:#fff;cursor:pointer;
+  }
+
+  .btn{
+    width:100%;padding:14px;border:none;border-radius:15px;
+    font-size:15px;font-weight:700;color:#fff;cursor:pointer;
+    background:linear-gradient(135deg,#FF9FB2 0%,#C4A5F5 100%);
+    box-shadow:0 9px 24px rgba(196,165,245,.38);
+    transition:transform .15s,box-shadow .15s;
+    font-family:inherit;letter-spacing:.5px;
+  }
+  .btn:hover{box-shadow:0 11px 28px rgba(196,165,245,.5);}
+  .btn:active{transform:scale(.975);}
+
+  .btn.ghost{
+    background:rgba(196,181,245,.14);
+    color:#7a6fbd;box-shadow:none;
+    border:1.5px solid rgba(196,181,245,.35);
+    margin-top:10px;
+  }
+  .btn.ghost:hover{background:rgba(196,181,245,.22);}
+
+  #result{
+    margin-top:20px;padding-top:20px;
+    border-top:1px dashed #E6E3F2;
+    display:none;
+  }
+  #result.on{display:block;animation:fadeUp .45s ease;}
+  @keyframes fadeUp{
+    from{opacity:0;transform:translateY(10px);}
+    to{opacity:1;transform:translateY(0);}
+  }
+  .resultLabel{
+    font-size:13px;color:#7a7690;font-weight:600;
+    margin-bottom:9px;letter-spacing:.3px;
+  }
+  .urlRow{display:flex;gap:8px;margin-bottom:4px;}
+  .urlRow input{
+    flex:1;min-width:0;padding:11px 13px;border-radius:12px;
+    border:1.5px solid #E6E3F2;background:#FAFAFE;
+    font-size:12.5px;color:#5c5870;outline:none;
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+  }
+  .copyBtn{
+    flex:0 0 auto;padding:0 17px;border:none;border-radius:12px;
+    background:#C4A5F5;color:#fff;font-size:13px;font-weight:700;
+    cursor:pointer;font-family:inherit;
+    transition:background .2s;
+  }
+  .copyBtn:hover{background:#b393ee;}
+  .tip{
+    margin:12px 0 0;font-size:11.5px;color:#a6a1bb;line-height:1.6;
+  }
+
+  /* ================= 动画层 ================= */
+  #cv{position:fixed;inset:0;z-index:1;display:none;}
+
+  #stage{
+    position:fixed;inset:0;z-index:2;
+    display:none;
+    flex-wrap:wrap;
+    align-content:center;
+    justify-content:center;
+    gap:10px 12px;
+    padding:28px 24px;
+    overflow:hidden;
+    transition:opacity 1.3s ease;
+  }
+  #stage.gone{opacity:0;}
+
+  .bubble{
+    flex:0 0 auto;max-width:14em;
+    padding:9px 15px;border-radius:16px;
+    color:#fff;font-size:14px;line-height:1.45;letter-spacing:.2px;
+    text-shadow:0 1px 4px rgba(0,0,0,.35),0 0 1px rgba(0,0,0,.25);
+    box-shadow:0 6px 18px rgba(120,120,160,.16),inset 0 1px 0 rgba(255,255,255,.4);
+    opacity:0;
+    transform:scale(.3) translateY(20px) rotate(0deg);
+    transition:transform .62s cubic-bezier(.34,1.56,.64,1),opacity .45s ease;
+    will-change:transform,opacity;
+    word-break:break-word;
+  }
+  .bubble.show{
+    opacity:1;
+    transform:scale(1) translateY(var(--dy,0px)) rotate(var(--rot,0deg));
+  }
+
+  #backBtn{
+    position:fixed;top:14px;right:14px;z-index:20;
+    padding:9px 17px;border-radius:999px;
+    background:rgba(255,255,255,.14);
+    color:#fff;font-size:13px;font-weight:600;
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.22);
+    cursor:pointer;font-family:inherit;
+    opacity:0;pointer-events:none;
+    transition:opacity .9s ease,background .2s;
+  }
+  #backBtn.on{opacity:1;pointer-events:auto;}
+  #backBtn:hover{background:rgba(255,255,255,.26);}
+
+  @media (max-width:560px){
+    #stage{gap:7px 8px;padding:16px 12px;}
+    .bubble{font-size:12px;padding:7px 11px;border-radius:13px;max-width:9.5em;}
+    .card{padding:26px 20px 22px;border-radius:20px;}
+    .card h1{font-size:19px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= 表单面板 ================= -->
+<div id="formPanel">
+  <div class="card">
+    <h1>🎂 生日祝福生成器</h1>
+    <p class="sub">输入 TA 的名字、挑一个颜色，生成一个专属的粒子生日祝福页，把链接发给对方就行。</p>
+
+    <div class="field">
+      <label>TA 的名字</label>
+      <input type="text" id="nameInput" maxlength="16" placeholder="例如：小明" autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="field">
+      <label>主题颜色</label>
+      <div class="swatches" id="swatches"></div>
+      <div class="customRow">
+        <input type="color" id="colorPicker" value="#FFB6C1">
+        <span>自定义颜色</span>
+      </div>
+    </div>
+
+    <button class="btn" id="genBtn">✨ 生成祝福链接</button>
+
+    <div id="result">
+      <div class="resultLabel">你的专属链接</div>
+      <div class="urlRow">
+        <input type="text" id="shareUrl" readonly>
+        <button class="copyBtn" id="copyBtn">复制</button>
+      </div>
+      <button class="btn ghost" id="previewBtn">🔗 打开预览</button>
+      <p class="tip">提示：本页面需要先上传到网上（如 GitHub Pages、Vercel、Netlify），生成的链接才能分享给别人打开。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 动画层 ================= -->
+<canvas id="cv"></canvas>
+<div id="stage"></div>
+<button id="backBtn">✏️ 再做一个</button>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= 常量 ================= */
+var PRESETS = [
+  '#FFB6C1','#FF9FB2','#C4A5F5','#8FBCFF','#79D6C5',
+  '#FFB48A','#FFD6A5','#B5EAD7','#F5A9C0','#A8E6CF'
+];
+var DEFAULT_COLOR = '#FFB6C1';
+
+var GRADS = [
+  ["#FF9FB2","#FFC3A0"],
+  ["#79D6C5","#B5EAD7"],
+  ["#8FBCFF","#B8D8FF"],
+  ["#C4A5F5","#E0BBE4"],
+  ["#FFB48A","#FFD6A5"],
+  ["#7FD1E8","#A8E6CF"],
+  ["#FFA8C5","#FFC8DD"],
+  ["#9BB8FF","#C7CEEA"],
+  ["#F5A9C0","#FFDAC1"],
+  ["#8ED9C4","#D4F0E0"]
+];
+
+var BUBBLE_GAP = 280;
+var HOLD_AFTER = 1500;
+
+/* ================= DOM ================= */
+var formPanel   = document.getElementById('formPanel');
+var cv          = document.getElementById('cv');
+var stage       = document.getElementById('stage');
+var backBtn     = document.getElementById('backBtn');
+var nameInput   = document.getElementById('nameInput');
+var swatches    = document.getElementById('swatches');
+var colorPicker = document.getElementById('colorPicker');
+var genBtn      = document.getElementById('genBtn');
+var result      = document.getElementById('result');
+var shareUrl    = document.getElementById('shareUrl');
+var copyBtn     = document.getElementById('copyBtn');
+var previewBtn  = document.getElementById('previewBtn');
+
+/* ================= 表单逻辑 ================= */
+var selectedColor = DEFAULT_COLOR;
+
+(function initSwatches(){
+  for (var i=0;i<PRESETS.length;i++){
+    (function(c){
+      var d = document.createElement('div');
+      d.className = 'swatch' + (c === selectedColor ? ' on' : '');
+      d.style.background = c;
+      d.dataset.color = c;
+      d.addEventListener('click', function(){
+        selectedColor = c;
+        colorPicker.value = c;
+        syncSwatches();
+      });
+      swatches.appendChild(d);
+    })(PRESETS[i]);
+  }
+  colorPicker.value = selectedColor;
+})();
+
+function syncSwatches(){
+  var kids = swatches.children;
+  for (var i=0;i<kids.length;i++){
+    kids[i].classList.toggle('on', kids[i].dataset.color === selectedColor);
+  }
+}
+
+colorPicker.addEventListener('input', function(){
+  selectedColor = colorPicker.value;
+  syncSwatches();
+});
+
+function buildUrl(name, color){
+  var u = new URL(location.href);
+  u.hash = '';
+  u.search = '';
+  u.searchParams.set('name', name);
+  u.searchParams.set('color', color);
+  return u.toString();
+}
+
+genBtn.addEventListener('click', function(){
+  var n = nameInput.value.trim();
+  if (!n){
+    nameInput.focus();
+    nameInput.classList.add('shake');
+    setTimeout(function(){ nameInput.classList.remove('shake'); }, 420);
+    return;
+  }
+  shareUrl.value = buildUrl(n, selectedColor);
+  result.classList.add('on');
+  setTimeout(function(){
+    try { result.scrollIntoView({behavior:'smooth', block:'nearest'}); } catch(e){}
+  }, 60);
+});
+
+copyBtn.addEventListener('click', function(){
+  var text = shareUrl.value;
+  if (!text) return;
+  copyText(text).then(function(ok){
+    copyBtn.textContent = ok ? '已复制 ✓' : '复制失败';
+    setTimeout(function(){ copyBtn.textContent = '复制'; }, 1600);
+  });
+});
+
+previewBtn.addEventListener('click', function(){
+  if (shareUrl.value) window.open(shareUrl.value, '_blank');
+});
+
+function copyText(text){
+  if (navigator.clipboard && window.isSecureContext){
+    return navigator.clipboard.writeText(text)
+      .then(function(){ return true; })
+      .catch(function(){ return fallbackCopy(text); });
+  }
+  return Promise.resolve(fallbackCopy(text));
+}
+
+function fallbackCopy(text){
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.top = '-1000px';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  var ok = false;
+  try { ok = document.execCommand('copy'); } catch(e){}
+  document.body.removeChild(ta);
+  return ok;
+}
+
+/* ================= 入口判断 ================= */
+var params = new URLSearchParams(location.search);
+var qName  = params.get('name');
+var qColor = params.get('color');
+
+if (qName && qColor && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(qColor)){
+  startShow(qName, qColor);
+}
+/* 否则停留在表单 */
+
+backBtn.addEventListener('click', function(){
+  location.href = location.href.split('?')[0];
+});
+
+/* =========================================================
+   动画主体
+   ========================================================= */
+function startShow(NAME, COLOR){
+  document.title = NAME + ' · Happy Birthday';
+  formPanel.style.display = 'none';
+  cv.style.display = 'block';
+  stage.style.display = 'flex';
+  stage.classList.remove('gone');
+
+  /* ---------- 颜色工具 ---------- */
+  function hexToRgb(hex){
+    hex = String(hex).replace('#','');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var n = parseInt(hex,16);
+    return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+  }
+  function mix(a,b,t){
+    return { r:a.r+(b.r-a.r)*t, g:a.g+(b.g-a.g)*t, b:a.b+(b.b-a.b)*t };
+  }
+  var WHITE = { r:255, g:255, b:255 };
+  function lighten(c,t){ return mix(c, WHITE, t); }
+
+  var BASE = hexToRgb(COLOR);
+
+  /* ---------- 发光点精灵缓存 ---------- */
+  var spriteCache = {};
+  function sprite(rgb){
+    var key = (rgb.r|0)+'_'+(rgb.g|0)+'_'+(rgb.b|0);
+    if (spriteCache[key]) return spriteCache[key];
+    var S = 64, h = S/2;
+    var c = document.createElement('canvas');
+    c.width = c.height = S;
+    var g = c.getContext('2d');
+    var grd = g.createRadialGradient(h,h,0,h,h,h);
+    var col = 'rgba('+(rgb.r|0)+','+(rgb.g|0)+','+(rgb.b|0)+',';
+    grd.addColorStop(0,    'rgba(255,255,255,1)');
+    grd.addColorStop(0.18, col + '0.95)');
+    grd.addColorStop(0.45, col + '0.35)');
+    grd.addColorStop(1,    col + '0)');
+    g.fillStyle = grd;
+    g.fillRect(0,0,S,S);
+    spriteCache[key] = c;
+    return c;
+  }
+
+    /* ---------- 30 条祝福 ---------- */
+  var WISHES = [
+    "祝 " + NAME + " 生日快乐！🎂",
+    + NAME + " 就是今天的主角！🎉",
+    "新的一岁，请继续闪闪发光吧，" + NAME + "！✨",
+    "叮！按时长大，" + NAME + "！🥳",
+    "属于 " + NAME + " 的生日快乐加载完毕🎈",
+    "愿全世界的美好，都奔向 " + NAME + "！🎊",
+    "生日快乐！愿好运偏爱 " + NAME + " 💐",
+    "今天把所有祝福送给 " + NAME + "！🌟",
+    "愿岁月温柔以待，" + NAME + "！🥂",
+    "新岁登场，好戏开场，" + NAME + "！🎁",
+    "生日快乐，愿 " + NAME + " 所愿皆所得💖",
+    "美好的生辰，送给独一无二的 " + NAME + "！🍰",
+    "今天，只为 " + NAME + " 欢呼！🥰",
+    "烟火献礼，生辰欢愉，" + NAME + "！🎇",
+    "前路繁花相伴，" + NAME + "！💫",
+    "愿日子甜甜的，" + NAME + "！🍭",
+    "自在喜乐，岁岁无忧，" + NAME + "！🤍",
+    "请尽情享受属于你的日子，" + NAME + "！🎀",
+    "一岁一新章，你好呀，" + NAME + "！🥳🎂",
+    "解锁全新一岁，加油，" + NAME + "！✨🎈",
+    "幸福如约而至，生日快乐 " + NAME + "！💐🎊",
+    "向着更好的自己出发吧，" + NAME + "！🌟🎁",
+    "保持热爱，奔赴山海，" + NAME + "！💖🍰",
+    "愿往后每一天都熠熠生辉，" + NAME + "！🥂✨",
+    "心怀热忱，一往无前，" + NAME + "！🎇💫",
+    "所有烦恼清零，快乐加满，" + NAME + "！🎂💐",
+    "时光不弃，未来可期，" + NAME + "！🎉💖",
+    "永远热烈，永远尽兴，" + NAME + "！🥰🎈",
+    "收下这一份满满的欢喜，" + NAME + "！🎁🍰",
+    "迎着光，继续往前走，" + NAME + "！✨🎊",
+    "生日快乐，我最亲爱的 " + NAME + "！🎊"
+  ];
+
+
+  /* ---------- 阶段一：气泡 ---------- */
+  var idx = 0;
+
+  function popNext(){
+    if (idx >= WISHES.length){ finishBubbles(); return; }
+
+    var el = document.createElement('div');
+    el.className = 'bubble';
+    var g = GRADS[idx % GRADS.length];
+    el.style.background = 'linear-gradient(135deg,' + g[0] + ' 0%,' + g[1] + ' 100%)';
+    el.style.setProperty('--rot', (Math.random()*5-2.5).toFixed(2) + 'deg');
+    el.style.setProperty('--dy',  (Math.random()*10-5).toFixed(1) + 'px');
+    el.textContent = WISHES[idx];
+    stage.appendChild(el);
+
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){ el.classList.add('show'); });
+    });
+
+    idx++;
+    setTimeout(popNext, BUBBLE_GAP);
+  }
+
+  function finishBubbles(){
+    setTimeout(function(){
+      stage.classList.add('gone');
+      document.body.classList.add('dark');
+      setTimeout(startScene, 1100);
+    }, HOLD_AFTER);
+  }
+
+  /* ---------- 阶段二：粒子 ---------- */
+  var ctx = cv.getContext('2d');
+  var W = 0, H = 0;
+
+  function resize(){
+    W = window.innerWidth;
+    H = window.innerHeight;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width  = Math.floor(W*dpr);
+    cv.height = Math.floor(H*dpr);
+    cv.style.width  = W + 'px';
+    cv.style.height = H + 'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  var parts   = [];
+  var sparks  = [];
+  var rockets = [];
+  var GRAV    = 0.16;
+  var running = false;
+
+  function addConverge(tx, ty, rgb, opt){
+    opt = opt || {};
+    var spread = opt.spread || 1.5;
+    var sx = W/2 + (Math.random()-0.5) * W * spread;
+    var sy = H/2 + (Math.random()-0.5) * H * spread;
+    parts.push({
+      x: sx, y: sy,
+      tx: tx, ty: ty,
+      vx: 0, vy: 0,
+      sp: sprite(rgb),
+      size: opt.size || 1.5,
+      delay: Math.floor(Math.random() * (opt.delayMax || 40))
+    });
+  }
+
+  /* ---------- 蛋糕 ---------- */
+  function buildCake(){
+    var cw = Math.min(W*0.46, 300);
+    var ch = cw * 0.72;
+    var baseY = H * 0.66;
+    var cx = W/2;
+    var density = 0.03;
+
+    var layers = [
+      { w: cw*1.00, h: ch*0.30, t: 0.00 },
+      { w: cw*0.78, h: ch*0.26, t: 0.32 },
+      { w: cw*0.56, h: ch*0.22, t: 0.58 }
+    ];
+
+    var yBottom = baseY;
+    for (var i=0;i<layers.length;i++){
+      var L = layers[i];
+      var top  = yBottom - L.h;
+      var left = cx - L.w/2;
+      var n = Math.max(70, Math.floor(L.w * L.h * density));
+      var col = lighten(BASE, L.t);
+      for (var k=0;k<n;k++){
+        addConverge(
+          left + Math.random()*L.w,
+          top  + Math.random()*L.h,
+          col,
+          { spread: 1.7, delayMax: 70, size: 1.0 + Math.random()*0.9 }
+        );
+      }
+      yBottom = top;
+    }
+
+    /* 蜡烛 */
+    var candleW = Math.max(5, cw*0.04);
+    var candleH = ch*0.30;
+    var candleTop = yBottom - candleH;
+    var candleCol = lighten(BASE, 0.85);
+    for (var c=0;c<90;c++){
+      addConverge(
+        cx - candleW/2 + Math.random()*candleW,
+        candleTop + Math.random()*candleH,
+        candleCol,
+        { spread: 1.7, delayMax: 80, size: 0.9 + Math.random()*0.7 }
+      );
+    }
+
+    /* 火苗 */
+    var flameY = candleTop - Math.max(6, cw*0.02);
+    var fr = Math.max(5, cw*0.035);
+    var flameCol = lighten(BASE, 0.55);
+    for (var f=0;f<70;f++){
+      var a = Math.random()*Math.PI*2;
+      var rr = Math.pow(Math.random(),0.6) * fr;
+      addConverge(
+        cx + Math.cos(a)*rr,
+        flameY + Math.sin(a)*rr*1.4,
+        flameCol,
+        { spread: 1.9, delayMax: 90, size: 1.3 + Math.random()*1.1 }
+      );
+    }
+  }
+
+  /* ---------- 文字采样 ---------- */
+  function sampleTextPoints(text, fontSize){
+    var oc = document.createElement('canvas');
+    var g  = oc.getContext('2d');
+    var font = 'bold ' + fontSize +
+      'px "PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif';
+
+    g.font = font;
+    var tw = Math.ceil(g.measureText(text).width) + 30;
+    var th = Math.ceil(fontSize * 1.9);
+
+    oc.width = tw; oc.height = th;
+    g = oc.getContext('2d');
+    g.font = font;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#fff';
+    g.fillText(text, tw/2, th/2);
+
+    var img = g.getImageData(0,0,tw,th).data;
+    var MAXP = 1300;
+    var step = 2, pts = [];
+
+    while (true){
+      pts = [];
+      for (var y=0;y<th;y+=step){
+        for (var x=0;x<tw;x+=step){
+          if (img[(y*tw+x)*4+3] > 128){
+            pts.push({ x: x - tw/2, y: y - th/2 });
+          }
+        }
+      }
+      if (pts.length <= MAXP || step >= 8) break;
+      step++;
+    }
+    return pts;
+  }
+
+  /* ---------- 底部文字 ---------- */
+  function buildText(){
+    var text = NAME + '  happy birthday!';
+    var fontFamily = '"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif';
+    var maxW = Math.min(W*0.88, 760);
+
+    var fs = Math.min(44, Math.max(18, W*0.05));
+    var mc = document.createElement('canvas').getContext('2d');
+    mc.font = 'bold ' + fs + 'px ' + fontFamily;
+    var w0 = mc.measureText(text).width;
+    if (w0 > maxW) fs = Math.max(13, Math.floor(fs * maxW / w0));
+
+    var pts = sampleTextPoints(text, fs);
+    var cy = H - Math.max(46, H*0.08);
+
+    for (var i=0;i<pts.length;i++){
+      var p = pts[i];
+      var col = (Math.random() < 0.22)
+        ? WHITE
+        : lighten(BASE, 0.25 + Math.random()*0.5);
+      addConverge(
+        W/2 + p.x + (Math.random()-0.5),
+        cy  + p.y + (Math.random()-0.5),
+        col,
+        { spread: 1.9, delayMax: 55, size: 0.85 + Math.random()*0.85 }
+      );
+    }
+  }
+
+  /* ---------- 烟花 ---------- */
+  function fireworkColor(){
+    var r = Math.random();
+    if (r < 0.42) return BASE;
+    if (r < 0.68) return lighten(BASE, 0.35);
+    if (r < 0.88) return lighten(BASE, 0.7);
+    return WHITE;
+  }
+
+  function launch(){
+    if (sparks.length > 2600) return;
+    var x = W * (0.12 + Math.random()*0.76);
+    var rise = H * (0.68 + Math.random()*0.20);
+    var vy = -Math.sqrt(2 * GRAV * rise);
+    rockets.push({
+      x: x, y: H + 8,
+      vx: (Math.random()-0.5) * 0.9,
+      vy: vy,
+      targetY: H - rise
+    });
+  }
+
+  function explode(x, y){
+    var n = 70 + Math.floor(Math.random()*70);
+    for (var i=0;i<n;i++){
+      var a  = Math.random() * Math.PI * 2;
+      var sp = Math.pow(Math.random(), 0.5) * 5.5 + 0.6;
+      sparks.push({
+        x: x, y: y,
+        vx: Math.cos(a)*sp,
+        vy: Math.sin(a)*sp,
+        life: 1,
+        decay: 0.006 + Math.random()*0.012,
+        sp: sprite(fireworkColor()),
+        size: 1.0 + Math.random()*1.3
+      });
+    }
+  }
+
+  /* ---------- 主循环 ---------- */
+  function loop(){
+    if (!running) return;
+    requestAnimationFrame(loop);
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(0,0,W,H);
+
+    ctx.globalCompositeOperation = 'lighter';
+
+    /* 汇聚粒子 */
+    for (var i=0;i<parts.length;i++){
+      var p = parts[i];
+      if (p.delay > 0){ p.delay--; continue; }
+
+      var dx = p.tx - p.x;
+      var dy = p.ty - p.y;
+      p.vx = p.vx * 0.90 + dx * 0.016;
+      p.vy = p.vy * 0.90 + dy * 0.016;
+      p.x += p.vx;
+      p.y += p.vy;
+
+      var r = p.size * 2.6;
+      ctx.drawImage(p.sp, p.x - r, p.y - r, r*2, r*2);
+    }
+
+    /* 火箭 */
+    for (var k=rockets.length-1;k>=0;k--){
+      var rk = rockets[k];
+      rk.x += rk.vx;
+      rk.y += rk.vy;
+      rk.vy += GRAV;
+
+      var rr = 4;
+      ctx.globalAlpha = 0.9;
+      ctx.drawImage(sprite(WHITE), rk.x - rr, rk.y - rr, rr*2, rr*2);
+
+      if (rk.vy >= -0.8 || rk.y <= rk.targetY){
+        explode(rk.x, rk.y);
+        rockets.splice(k,1);
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    /* 烟花粒子 */
+    for (var j=sparks.length-1;j>=0;j--){
+      var s = sparks[j];
+      s.vy += GRAV * 0.55;
+      s.vx *= 0.985;
+      s.vy *= 0.985;
+      s.x += s.vx;
+      s.y += s.vy;
+      s.life -= s.decay;
+
+      if (s.life <= 0 || s.y > H + 60){
+        sparks.splice(j,1);
+        continue;
+      }
+      ctx.globalAlpha = Math.max(0, s.life);
+      var sr = s.size * 3;
+      ctx.drawImage(s.sp, s.x - sr, s.y - sr, sr*2, sr*2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ---------- 启动粒子场景 ---------- */
+  function startScene(){
+    resize();
+    ctx.clearRect(0,0,W,H);
+
+    buildCake();
+    setTimeout(buildText, 1100);
+
+    setTimeout(function(){
+      launch();
+      setInterval(launch, 1200);
+    }, 500);
+
+    running = true;
+    requestAnimationFrame(loop);
+
+    setTimeout(function(){ backBtn.classList.add('on'); }, 2000);
+  }
+
+  /* ---------- 开始 ---------- */
+  resize();
+  window.addEventListener('resize', function(){
+    if (running) resize();
+  });
+
+  setTimeout(popNext, 350);
+}
+
+})();
+</script>
+</body>
+</html>
